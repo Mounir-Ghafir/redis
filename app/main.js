@@ -28,7 +28,7 @@ server.on("connection", (socket) => {
             } else if (command === "SET") {
                 const key = parts[4];
                 const value = parts[6];
-                const pxIndex = parts.findIndex(p => p.toUpperCase() === "PX");  // ✅ findIndex
+                const pxIndex = parts.findIndex(p => p.toUpperCase() === "PX");
 
                 let expiry = null;
                 if (pxIndex !== -1) {
