@@ -1,72 +1,78 @@
 const net = require("net");
+const {
+  ping,
+  echo,
+  set,
+  get,
+  rpush,
+  lpush,
+  lpop,
+  blpop,
+  lrange,
+  llen,
+  unknown,
+  cleanup,
+} = require("./handlers");
+
+console.log("Logs from your program will appear here!");
 
 const server = net.createServer();
-const port = 6380;
+const port = 6379;
 const host = "127.0.0.1";
 
-const store = {};
-
 server.on("connection", (socket) => {
-    let buffer = ""; 
+  let buffer = "";
 
-    socket.on("data", (data) => {
-        buffer += data.toString();
-        while (buffer.includes("\r\n")) {
-            const parts = buffer.split("\r\n");
-            const numArgs = parseInt(parts[0]?.slice(1));
-            const expectedParts = 1 + numArgs * 2;
+  socket.on("data", (data) => {
+    buffer += data.toString();
 
-            if (parts.length < expectedParts + 1) break;
+    while (buffer.includes('\r\n')) {
+      const parts = buffer.split('\r\n');
+      const numArgs = parseInt(parts[0]?.slice(1));
+      const expectedParts = 1 + numArgs * 2;
 
-            const command = parts[2]?.toUpperCase();
+      if (parts.length < expectedParts) break;
 
-            if (command === "PING") {
-                socket.write("+PONG\r\n");
-            } else if (command === "ECHO") {
-                const content = parts[4];
-                socket.write(`$${content.length}\r\n${content}\r\n`);
-            } else if (command === "SET") {
-                const key = parts[4];
-                const value = parts[6];
-                const pxIndex = parts.findIndex(p => p.toUpperCase() === "PX");
+      const command = parts[2]?.toUpperCase();
 
-                let expiry = null;
-                if (pxIndex !== -1) {
-                    const duration = parseInt(parts[pxIndex + 2]);
-                    expiry = Date.now() + duration;
-                }
+      if (command === "PING") {
+        ping(socket);
+      } else if (command === "ECHO") {
+        echo(parts, socket);
+      } else if (command === "SET") {
+        set(parts, socket);
+      } else if (command === "GET") {
+        get(parts, socket);
+      } else if (command === "RPUSH") {
+        rpush(parts, socket);
+      } else if (command === "LPUSH") {
+        lpush(parts, socket);
+      } else if (command === "LPOP") {
+        lpop(parts, socket);
+      } else if (command === "BLPOP") {
+        blpop(parts, socket);
+      } else if (command === "LRANGE") {
+        lrange(parts, socket);
+      } else if (command === "LLEN") {
+        llen(parts, socket);
+      } else {
+        unknown(socket);
+      }
 
-                store[key] = { value, expiry };
-                socket.write("+OK\r\n");
-            } else if (command === "GET") {
-                const key = parts[4];
-                const entry = store[key];
+      buffer = parts.slice(expectedParts).join('\r\n');
+    }
+  });
 
-                if (!entry) {
-                    socket.write("$-1\r\n");
-                } else if (entry.expiry && Date.now() > entry.expiry) {
-                    delete store[key];
-                    socket.write("$-1\r\n");
-                } else {
-                    socket.write(`$${entry.value.length}\r\n${entry.value}\r\n`);
-                }
-            } else {
-                socket.write("-ERR unknown command\r\n");
-            }
+  socket.on("end", () => {
+    cleanup(socket);
+    console.log("Client disconnected");
+  });
 
-            buffer = parts.slice(expectedParts).join("\r\n");
-        }
-    });
-
-    socket.on("end", () => {
-        console.log("Client disconnected");
-    });
-
-    socket.on("error", (err) => {
-        console.error("Socket error:", err.message);
-    });
+  socket.on("error", (err) => {
+    console.error("Socket error:", err.message);
+  });
 });
 
 server.listen(port, host, () => {
-    console.log(`Server running at ${host}:${port}`);
+  console.log(`Server running at ${host}:${port}`);
 });
