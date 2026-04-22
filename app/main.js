@@ -11,6 +11,8 @@ const {
   lrange,
   llen,
   unknown,
+  type,
+  xadd,
   cleanup,
 } = require("./handlers");
 
@@ -29,6 +31,7 @@ server.on("connection", (socket) => {
     while (buffer.includes('\r\n')) {
       const parts = buffer.split('\r\n');
       const numArgs = parseInt(parts[0]?.slice(1));
+      
       const expectedParts = 1 + numArgs * 2;
 
       if (parts.length < expectedParts) break;
@@ -37,6 +40,10 @@ server.on("connection", (socket) => {
 
       if (command === "PING") {
         ping(socket);
+      } else if (command === "XADD") {
+        xadd(parts, socket);
+      } else if (command === "TYPE") {
+        type(parts, socket);
       } else if (command === "ECHO") {
         echo(parts, socket);
       } else if (command === "SET") {

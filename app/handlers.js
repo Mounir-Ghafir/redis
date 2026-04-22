@@ -5,6 +5,93 @@ function ping(socket) {
   socket.write("+PONG\r\n");
 }
 
+function xadd(args, socket) {
+  const key = args[4];
+  let id = args[6];
+  const fields = {};
+  
+  let [msStr, seqStr] = id.split("-");
+  let newMs = parseInt(msStr);
+  let newSeq;
+
+  const streamEntry = store[key];
+  const lastEntry = streamEntry && streamEntry.value.length > 0 
+    ? streamEntry.value[streamEntry.value.length - 1] 
+    : null;
+
+  if (seqStr === "*") {
+    if (lastEntry) {
+      const [lastMs, lastSeq] = lastEntry.id.split("-").map(Number);
+      
+      if (newMs === lastMs) {
+        newSeq = lastSeq + 1;
+      } else if (newMs > lastMs) {
+        newSeq = 0;
+      } else {
+  
+        socket.write("-ERR The ID specified in XADD is equal or smaller than the target stream top item\r\n");
+        return;
+      }
+    } else {
+
+      newSeq = (newMs === 0) ? 1 : 0;
+    }
+
+    id = `${newMs}-${newSeq}`;
+  } else {
+
+    newSeq = parseInt(seqStr);
+
+    if (newMs === 0 && newSeq === 0) {
+      socket.write("-ERR The ID specified in XADD must be greater than 0-0\r\n");
+      return;
+    }
+
+    if (lastEntry) {
+      const [lastMs, lastSeq] = lastEntry.id.split("-").map(Number);
+      if (newMs < lastMs || (newMs === lastMs && newSeq <= lastSeq)) {
+        socket.write("-ERR The ID specified in XADD is equal or smaller than the target stream top item\r\n");
+        return;
+      }
+    }
+  }
+
+  for (let i = 8; i < args.length; i += 4) {
+    const fieldKey = args[i];
+    const fieldValue = args[i + 2];
+    if (fieldKey && fieldValue) fields[fieldKey] = fieldValue;
+  }
+
+  if (!store[key]) {
+    store[key] = { type: "stream", value: [], expiry: null };
+  }
+
+  store[key].value.push({ id, fields });
+
+  socket.write(`$${id.length}\r\n${id}\r\n`);
+}
+function type(args, socket) {
+  const key = args[4];
+  const entry = store[key];
+
+  if (!entry || (entry.expiry && Date.now() > entry.expiry)) {
+    if (entry) delete store[key];
+    socket.write("+none\r\n");
+    return;
+  }
+
+  // Check the explicit type property first
+  if (entry.type === "stream") {
+    socket.write("+stream\r\n");
+  } else if (Array.isArray(entry.value)) {
+    socket.write("+list\r\n");
+  } else if (typeof entry.value === "string") {
+    socket.write("+string\r\n");
+  } else {
+    socket.write("+none\r\n");
+  }
+}
+
 function echo(args, socket) {
   const content = args[4];
   socket.write(`$${content.length}\r\n${content}\r\n`);
@@ -21,7 +108,7 @@ function set(args, socket) {
     expiry = Date.now() + duration;
   }
 
-  store[key] = { value, expiry };
+  store[key] = { type: "string", value, expiry };
   socket.write("+OK\r\n");
 }
 
@@ -46,16 +133,16 @@ function rpush(args, socket) {
   }
 
   if (!store[key]) {
-    store[key] = { value: [], expiry: null };
+    store[key] = { type: "list", value: [], expiry: null };
   }
 
   store[key].value.push(...elements);
   socket.write(`:${store[key].value.length}\r\n`);
 
+  // Handle BLPOP waiters
   while (waitingClients[key] && waitingClients[key].length > 0 && store[key].value.length > 0) {
     const waiter = waitingClients[key].shift();
     if (waiter.timeoutId) clearTimeout(waiter.timeoutId);
-    
     const poppedValue = store[key].value.shift();
     waiter.socket.write(`*2\r\n$${key.length}\r\n${key}\r\n$${poppedValue.length}\r\n${poppedValue}\r\n`);
   }
@@ -70,7 +157,7 @@ function lpush(args, socket) {
   }
 
   if (!store[key]) {
-    store[key] = { value: [], expiry: null };
+    store[key] = { type: "list", value: [], expiry: null };
   }
 
   store[key].value.unshift(...elements.reverse());
@@ -79,7 +166,6 @@ function lpush(args, socket) {
   while (waitingClients[key] && waitingClients[key].length > 0 && store[key].value.length > 0) {
     const waiter = waitingClients[key].shift();
     if (waiter.timeoutId) clearTimeout(waiter.timeoutId);
-    
     const poppedValue = store[key].value.shift();
     waiter.socket.write(`*2\r\n$${key.length}\r\n${key}\r\n$${poppedValue.length}\r\n${poppedValue}\r\n`);
   }
@@ -143,7 +229,7 @@ function lrange(args, socket) {
   } else {
     const list = entry.value;
     if (start < 0) start = Math.max(0, list.length + start);
-    if (stop < 0)  stop  = list.length + stop
+    if (stop < 0)  stop  = list.length + stop;
     if (stop >= list.length) stop = list.length - 1;
 
     if (start >= list.length || start > stop) {
@@ -193,5 +279,7 @@ module.exports = {
   lrange,
   llen,
   unknown,
+  type,
+  xadd,
   cleanup,
 };
