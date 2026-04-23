@@ -33,7 +33,6 @@ function handleWaitingClients(key) {
       const poppedValue = entry.value.shift();
       encoder.writeKeyValue(waiter.socket, key, poppedValue);
     } else {
-      // Not a BLPOP waiter, skip for now (XREAD handled elsewhere)
       break; 
     }
   }

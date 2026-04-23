@@ -61,7 +61,7 @@ function xadd(args, socket) {
   entry.value.push({ id, fields });
   encoder.writeBulkString(socket, id);
 
-  // Notify waiting clients
+
   const waitingClients = store.getWaitingClients(key);
   if (waitingClients.length > 0) {
     const clientsToNotify = [...waitingClients];
@@ -70,9 +70,9 @@ function xadd(args, socket) {
         const currentResults = getResults(client.keys, client.ids);
 
         if (currentResults.length > 0) {
-          // Unblock
+
           if (client.timeoutId) clearTimeout(client.timeoutId);
-          // Remove from all keys to avoid multiple triggers
+
           client.keys.forEach(k => store.removeWaitingClient(k, client.socket));
           
           writeResponse(client.socket, currentResults);

@@ -8,7 +8,6 @@ function getResults(keys, idsOrMarkers) {
     let idArg = idsOrMarkers[i];
     const streamEntry = store.get(key);
 
-    // Handle special '$' ID - resolve to current max at check time
     if (idArg === "$") {
       if (streamEntry && streamEntry.type === "stream" && streamEntry.value.length > 0) {
         idArg = streamEntry.value[streamEntry.value.length - 1].id;
@@ -85,7 +84,7 @@ function xread(args, socket) {
     const timeoutValue = values[blockIndex + 1];
     const timeoutMs = timeoutValue !== undefined ? parseInt(timeoutValue) : NaN;
     
-    // Preserve original IDs (including '$' marker) for resolution at check time
+
     const rawIds = keysIds.slice(half);
     
     const clientData = {
@@ -98,12 +97,12 @@ function xread(args, socket) {
 
     if (!isNaN(timeoutMs) && timeoutMs > 0) {
       clientData.timeoutId = setTimeout(() => {
-        // Remove from all keys
+
         keys.forEach(k => store.removeWaitingClient(k, socket));
         encoder.writeBulkString(socket, null);
       }, timeoutMs);
     } else if (timeoutMs === 0 || isNaN(timeoutMs)) {
-      // Wait indefinitely if BLOCK 0 or just BLOCK is provided
+
     }
 
     keys.forEach(key => store.addWaitingClient(key, clientData));
