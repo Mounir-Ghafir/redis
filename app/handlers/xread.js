@@ -2,13 +2,15 @@ const store = require("../store");
 const encoder = require("../encoder");
 
 function xread(args, socket) {
-  const streamsIndex = args.findIndex(a => a && a.toUpperCase() === "STREAMS");
+  const values = args.filter((_, i) => i % 2 === 0 && i >= 2);
+  const streamsIndex = values.findIndex(v => v && v.toUpperCase() === "STREAMS");
+
   if (streamsIndex === -1) {
     encoder.writeError(socket, "syntax error");
     return;
   }
 
-  const remaining = args.slice(streamsIndex + 1).filter(a => a !== "");
+  const remaining = values.slice(streamsIndex + 1);
   const half = remaining.length / 2;
   const keys = remaining.slice(0, half);
   const ids = remaining.slice(half);
@@ -33,7 +35,14 @@ function xread(args, socket) {
         })
       : [];
 
-    results.push({ key, entries });
+    if (entries.length > 0) {
+      results.push({ key, entries });
+    }
+  }
+
+  if (results.length === 0) {
+    encoder.writeBulkString(socket, null);
+    return;
   }
 
   let response = `*${results.length}\r\n`;
@@ -46,7 +55,8 @@ function xread(args, socket) {
       response += `*2\r\n$${entry.id.length}\r\n${entry.id}\r\n`;
       response += `*${pairs.length}\r\n`;
       for (const part of pairs) {
-        response += `$${part.length}\r\n${part}\r\n`;
+        const partStr = part.toString();
+        response += `$${partStr.length}\r\n${partStr}\r\n`;
       }
     }
   }
