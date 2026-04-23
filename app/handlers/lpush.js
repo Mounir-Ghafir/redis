@@ -26,10 +26,16 @@ function handleWaitingClients(key) {
   const waiting = store.getWaitingClients(key);
 
   while (waiting && waiting.length > 0 && entry.value.length > 0) {
-    const waiter = waiting.shift();
-    if (waiter.timeoutId) clearTimeout(waiter.timeoutId);
-    const poppedValue = entry.value.shift();
-    encoder.writeKeyValue(socket, key, poppedValue);
+    const waiter = waiting[0];
+    if (waiter.type === "BLPOP") {
+      waiting.shift();
+      if (waiter.timeoutId) clearTimeout(waiter.timeoutId);
+      const poppedValue = entry.value.shift();
+      encoder.writeKeyValue(waiter.socket, key, poppedValue);
+    } else {
+      // Not a BLPOP waiter, skip for now (XREAD handled elsewhere)
+      break; 
+    }
   }
 }
 

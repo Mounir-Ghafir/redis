@@ -17,7 +17,7 @@ function blpop(args, socket) {
         }, timeoutSeconds * 1000)
       : null;
 
-    store.addWaitingClient(key, { socket, timeoutId });
+    store.addWaitingClient(key, { socket, timeoutId, type: "BLPOP" });
   }
 }
 

@@ -11,7 +11,7 @@ const llen = require("./llen");
 const type = require("./type");
 const xadd = require("./xadd");
 const xrange = require("./xrange");
-const xread = require("./xread");
+const { xread } = require("./xread");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 

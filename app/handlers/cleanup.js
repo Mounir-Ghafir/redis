@@ -1,7 +1,7 @@
 const store = require("../store");
 
 function cleanup(args, socket) {
-  store.clearAll();
+  store.removeClientFromAllKeys(socket);
 }
 
 module.exports = cleanup;
