@@ -1,24 +1,7 @@
 {
-  "name": "redis",
+  "name": "@codecrafters/redis",
   "version": "1.0.0",
-  "main": "app/main.js",
-  "type": "commonjs",
-  "description": "This project is a simple Redis-compatible server that responds to `PING` commands. Here are the different ways you can test it.",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Mounir-Ghafir/redis.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/Mounir-Ghafir/redis/issues"
-  },
-  "homepage": "https://github.com/Mounir-Ghafir/redis#readme",
   "dependencies": {
-    "nc": "^1.0.3"
+    "ioredis": "^5.10.1"
   }
 }
