@@ -10,8 +10,12 @@ let port = 6379;
 let isReplica = false;
 let masterHost = null;
 let masterPort = null;
-let dir = null;
+let dir = process.cwd();
 let dbfilename = null;
+let appendonly = "no";
+let appenddirname = "appendonlydir";
+let appendfilename = "appendonly.aof";
+let appendfsync = "everysec";
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" && args[i + 1]) {
@@ -29,13 +33,25 @@ for (let i = 0; i < args.length; i++) {
   } else if (args[i] === "--dbfilename" && args[i + 1]) {
     dbfilename = args[i + 1];
     i++;
+  } else if (args[i] === "--appendonly" && args[i + 1]) {
+    appendonly = args[i + 1];
+    i++;
+  } else if (args[i] === "--appenddirname" && args[i + 1]) {
+    appenddirname = args[i + 1];
+    i++;
+  } else if (args[i] === "--appendfilename" && args[i + 1]) {
+    appendfilename = args[i + 1];
+    i++;
+  } else if (args[i] === "--appendfsync" && args[i + 1]) {
+    appendfsync = args[i + 1];
+    i++;
   }
 }
 
 const server = net.createServer();
 const host = "127.0.0.1";
 
-createServer(server, { isReplica, dir, dbfilename });
+createServer(server, { isReplica, dir, dbfilename, appendonly, appenddirname, appendfilename, appendfsync });
 
 server.listen(port, host, () => {
   console.log(`Server running at ${host}:${port}`);

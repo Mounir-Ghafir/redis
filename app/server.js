@@ -18,6 +18,26 @@ function createServer(server, config = {}) {
     }
   }
 
+  if (config.appendonly === "yes" && config.dir && config.appenddirname && config.appendfilename) {
+    const aofDir = path.join(config.dir, config.appenddirname);
+    if (!fs.existsSync(aofDir)) {
+      fs.mkdirSync(aofDir, { recursive: true });
+    }
+    
+    const aofBaseName = config.appendfilename + ".1.incr.aof";
+    const aofPath = path.join(aofDir, aofBaseName);
+    if (!fs.existsSync(aofPath)) {
+      fs.writeFileSync(aofPath, "");
+    }
+    
+    const manifestPath = path.join(aofDir, config.appendfilename + ".manifest");
+    if (!fs.existsSync(manifestPath)) {
+      fs.writeFileSync(manifestPath, `file ${aofBaseName} seq 1 type i\n`);
+    }
+    
+    store.replayAof(aofDir, config.appendfilename);
+  }
+
   server.on("connection", (socket) => {
     let buffer = "";
     const state = {
@@ -59,6 +79,10 @@ function createServer(server, config = {}) {
           getReplicas: () => replicas,
           dir: serverConfig.dir,
           dbfilename: serverConfig.dbfilename,
+          appendonly: serverConfig.appendonly,
+          appenddirname: serverConfig.appenddirname,
+          appendfilename: serverConfig.appendfilename,
+          appendfsync: serverConfig.appendfsync,
         };
         const response = handler(parts, socket, state, serverInfo);
 
@@ -66,6 +90,24 @@ function createServer(server, config = {}) {
           // This is a propagated command to a replica, no response needed
         } else if (!state.isReplica && command === "SET") {
           propagateCommand(rawData, socket);
+        }
+
+        if (serverConfig.appendonly === "yes") {
+          const aofDir = path.join(serverConfig.dir, serverConfig.appenddirname);
+          const manifestPath = path.join(aofDir, serverConfig.appendfilename + ".manifest");
+          if (fs.existsSync(manifestPath)) {
+            const manifest = fs.readFileSync(manifestPath, "utf8");
+            const match = manifest.match(/file\s+(\S+)\s+seq\s+(\d+)\s+type\s+(\w)/);
+            if (match) {
+              const aofPath = path.join(aofDir, match[1]);
+              if (isWriteCommand(command)) {
+                fs.appendFileSync(aofPath, rawData);
+                if (serverConfig.appendfsync === "always") {
+                  fs.fsyncSync(fs.openSync(aofPath, "r+"));
+                }
+              }
+            }
+          }
         }
 
         buffer = parts.slice(expectedParts).join('\r\n');
@@ -85,6 +127,11 @@ function createServer(server, config = {}) {
   });
 
   return server;
+}
+
+function isWriteCommand(command) {
+  const writeCommands = ["SET", "DEL", "INCR", "DECR", "LPUSH", "RPUSH", "LPOP", "RPOP", "LREM", "LSET", "SADD", "SREM", "SMOVE", "ZADD", "ZREM", "ZINCRBY", "APPEND"];
+  return writeCommands.includes(command);
 }
 
 function propagateCommand(commandStr, originSocket) {

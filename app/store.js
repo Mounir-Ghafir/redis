@@ -1,4 +1,6 @@
 const fs = require("fs");
+const path = require("path");
+const handlers = require("./handlers");
 const store = {};
 const dirty = {};
 const waitingClients = {};
@@ -147,6 +149,57 @@ function readString(data, pos) {
   return str;
 }
 
+function replayAof(aofDir, appendFilename) {
+  try {
+    const manifestPath = path.join(aofDir, appendFilename + ".manifest");
+    if (!fs.existsSync(manifestPath)) return;
+    
+    const manifest = fs.readFileSync(manifestPath, "utf8");
+    const match = manifest.match(/file\s+(\S+)\s+seq\s+(\d+)\s+type\s+(\w)/);
+    if (!match) return;
+    
+    const aofPath = path.join(aofDir, match[1]);
+    if (!fs.existsSync(aofPath)) return;
+    
+    const aofData = fs.readFileSync(aofPath, "utf8");
+    let pos = 0;
+    
+    while (pos < aofData.length) {
+      if (aofData[pos] !== '*') break;
+      
+      const lineEnd = aofData.indexOf('\r\n', pos);
+      if (lineEnd === -1) break;
+      
+      const numArgs = parseInt(aofData.slice(pos + 1, lineEnd));
+      if (isNaN(numArgs)) break;
+      
+      pos = lineEnd + 2;
+      const parts = [];
+      
+      for (let i = 0; i < numArgs; i++) {
+        if (aofData[pos] !== '$') break;
+        const lenEnd = aofData.indexOf('\r\n', pos);
+        if (lenEnd === -1) break;
+        
+        const len = parseInt(aofData.slice(pos + 1, lenEnd));
+        pos = lenEnd + 2;
+        const value = aofData.slice(pos, pos + len);
+        parts.push(value);
+        pos += len + 2;
+      }
+      
+      if (parts.length > 0) {
+        const handler = handlers[parts[0].toLowerCase()];
+        if (handler) {
+          handler(parts, { write: () => {} }, { inTransaction: false, queuedCommands: [] }, {});
+        }
+      }
+    }
+  } catch (e) {
+    // Ignore AOF replay errors
+  }
+}
+
 module.exports = {
   store,
   dirty,
@@ -165,4 +218,5 @@ module.exports = {
   clearAll,
   removeClientFromAllKeys,
   loadRdbFile,
+  replayAof,
 };

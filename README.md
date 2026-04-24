@@ -15,8 +15,12 @@ A custom implementation of a Redis-compatible server built with Node.js. This pr
 Run the server with optional flags:
 - `--port <port>`: Start the server on a custom port (default: 6379)
 - `--replicaof <host> <port>`: Start as a replica connecting to the specified master
-- `--dir <directory>`: Directory where RDB file is stored
+- `--dir <directory>`: Directory where RDB and AOF files are stored
 - `--dbfilename <name>`: Name of the RDB file
+- `--appendonly <yes|no>`: Enable AOF persistence (default: no)
+- `--appenddirname <name>`: AOF subdirectory (default: appendonlydir)
+- `--appendfilename <name>`: AOF filename (default: appendonly.aof)
+- `--appendfsync <always|everysec|no>`: AOF sync mode (default: everysec)
 
 ## Command Handlers
 
@@ -71,6 +75,28 @@ When started with `--dir` and `--dbfilename`, the server loads keys from the RDB
 ### Configuration Commands
 - **CONFIG GET dir**: Returns the configured directory path
 - **CONFIG GET dbfilename**: Returns the configured RDB filename
+- **CONFIG GET appendonly**: Returns AOF enabled status
+- **CONFIG GET appenddirname**: Returns AOF subdirectory
+- **CONFIG GET appendfilename**: Returns AOF filename
+- **CONFIG GET appendfsync**: Returns AOF sync mode
+
+## AOF Persistence
+
+When `--appendonly yes` is set, write commands are logged to AOF file:
+
+### Files Created
+- `<dir>/<appenddirname>/`: AOF directory created on startup
+- `<dir>/<appenddirname>/<appendfilename>.1.incr.aof`: Append-only file
+- `<dir>/<appenddirname>/<appendfilename>.manifest`: Manifest file
+
+### Write Commands
+Only modifying commands (SET, DEL, INCR, LPUSH, etc.) are logged to AOF file.
+- **appendfsync always**: Flush to disk before client response (tested)
+- **appendfsync everysec**: Flush every second (not fully tested)
+- **appendfsync no**: Let OS handle flushing (not tested)
+
+### Recovery
+On startup with AOF enabled, commands from AOF file are replayed to restore state.
 
 ## Replication
 
