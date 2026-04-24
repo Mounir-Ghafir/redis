@@ -37,6 +37,10 @@ const { geoadd } = require("./geoadd");
 const { geopos } = require("./geopos");
 const { geodist } = require("./geodist");
 const { geosearch } = require("./geosearch");
+const { aclWhoami } = require("./aclwhoami");
+const { aclGetuser } = require("./aclgetuser");
+const { aclSetuser } = require("./aclsetuser");
+const { auth } = require("./auth");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 
@@ -81,5 +85,9 @@ module.exports = {
   geopos,
   geodist,
   geosearch,
+  aclWhoami,
+  aclGetuser,
+  aclSetuser,
+  auth,
   cleanup,
 };

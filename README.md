@@ -83,6 +83,12 @@ Run the server with optional flags:
 - **geodist.js**: Calculate distance between two locations.
 - **geosearch.js**: Search locations within radius.
 
+### ACL Commands
+- **aclwhoami.js**: Get current authenticated user.
+- **aclgetuser.js**: Get user properties (flags, passwords).
+- **aclsetuser.js**: Set user password.
+- **auth.js**: Authenticate user.
+
 ## Features
 
 ### Pub/Sub
@@ -103,6 +109,13 @@ When `--appendonly yes` is set:
 ### Replication
 - Master: Sends FULLRESYNC with empty RDB file, propagates SET commands
 - Replica: Completes 3-step handshake, processes propagated commands silently, tracks offset
+
+### ACL (Access Control)
+- Default user with nopass flag (auto-authenticated)
+- Password storage using SHA-256 hash
+- Set password: ACL SETUSER default >password
+- AUTH command for authentication
+- NOAUTH error when password is set and not authenticated
 
 ### Geo Commands
 - GEOADD: Validates longitude (-180 to +180) and latitude (-85.05112878 to +85.05112878)

@@ -1,9 +1,17 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const handlers = require("./handlers");
 const store = {};
 const dirty = {};
 const waitingClients = {};
+const users = {
+  default: {
+    flags: ["nopass"],
+    passwords: []
+  }
+};
+const authenticatedUsers = new WeakMap();
 
 function get(key) {
   const entry = store[key];
@@ -392,6 +400,39 @@ function geosearch(key, lng, lat, radius, unit) {
   return results;
 }
 
+function aclWhoami(user) {
+  return user || "default";
+}
+
+function aclGetuser(username) {
+  const user = users[username];
+  if (!user) return null;
+  return ["flags", user.flags, "passwords", user.passwords];
+}
+
+function aclSetuser(username, passwordHash) {
+  const user = users[username];
+  if (!user) return false;
+  user.passwords = [passwordHash];
+  user.flags = [];
+  return true;
+}
+
+function authenticate(socket, username, passwordHash) {
+  const user = users[username];
+  if (!user) return false;
+  if (user.passwords.length === 0) return false;
+  return user.passwords.includes(passwordHash);
+}
+
+function setAuthenticatedUser(socket, username) {
+  authenticatedUsers.set(socket, username);
+}
+
+function getAuthenticatedUser(socket) {
+  return authenticatedUsers.get(socket);
+}
+
 module.exports = {
   store,
   dirty,
@@ -421,4 +462,10 @@ module.exports = {
   geopos,
   geodist,
   geosearch,
+  aclWhoami,
+  aclGetuser,
+  aclSetuser,
+  authenticate,
+  setAuthenticatedUser,
+  getAuthenticatedUser,
 };

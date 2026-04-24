@@ -1,5 +1,6 @@
 const encoder = require("./encoder");
 const handlers = require("./handlers");
+const store = require("./store");
 const fs = require("fs");
 const path = require("path");
 
@@ -62,6 +63,17 @@ function createServer(server, config = {}) {
         if (parts.length < expectedParts) break;
 
         const command = parts[2]?.toUpperCase();
+
+        const users = require("./store").users || {};
+        const isAuthCommand = command === "AUTH" || command === "ACL" || command === "ACLWHOAMI" || command === "ACLGETUSER" || command === "ACLSETUSER";
+        const currentUser = store.getAuthenticatedUser(socket);
+        const requiresAuth = users.default && users.default.passwords && users.default.passwords.length > 0;
+        
+        if (requiresAuth && !currentUser && !isAuthCommand) {
+          socket.write("-ERR NOAUTH Authentication required.\r\n");
+          buffer = parts.slice(expectedParts).join('\r\n');
+          continue;
+        }
 
         if (state.inSubscribeMode) {
           const allowedCommands = ["SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT", "RESET"];
