@@ -43,6 +43,9 @@ createServer(server, {
   maxmemory: cfg.maxmemory,
   maxmemoryPolicy: cfg.maxmemoryPolicy,
   requirepass: cfg.requirepass,
+  maxclients: cfg.maxclients,
+  rateLimitMax: cfg.ratelimitmax,
+  rateLimitWindow: cfg.ratelimitwindow,
 });
 
 server.listen(cfg.port, cfg.bind, () => {

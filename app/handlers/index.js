@@ -23,6 +23,7 @@ const { replconf } = require("./server/replconf");
 const { psync } = require("./server/psync");
 const { wait } = require("./server/wait");
 const { configGet } = require("./server/configget");
+const { health, stats } = require("./server/health");
 const { keys } = require("./key/keys");
 const { subscribe } = require("./pubsub/subscribe");
 const { unsubscribe } = require("./pubsub/unsubscribe");
@@ -90,4 +91,6 @@ module.exports = {
   aclSetuser,
   auth,
   cleanup,
+  health,
+  stats,
 };

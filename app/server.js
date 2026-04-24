@@ -12,8 +12,54 @@ let globalOffset = 0;
 let serverConfig = {};
 let activeConnections = new Set();
 
+let requestCounts = new Map();
+let rateLimitWindow = 1000;
+let rateLimitMax = 1000;
+
+function sanitizeInput(str) {
+  if (str === null || str === undefined) return null;
+  return String(str).replace(/[\x00-\x1F\x7F]/g, '');
+}
+
+function checkRateLimit(clientIp) {
+  const now = Date.now();
+  const clientRequests = requestCounts.get(clientIp) || [];
+  
+  const recentRequests = clientRequests.filter(t => now - t < rateLimitWindow);
+  
+  if (recentRequests.length >= rateLimitMax) {
+    return false;
+  }
+  
+  recentRequests.push(now);
+  requestCounts.set(clientIp, recentRequests);
+  return true;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, times] of requestCounts) {
+    const recent = times.filter(t => now - t < rateLimitWindow);
+    if (recent.length === 0) {
+      requestCounts.delete(ip);
+    } else {
+      requestCounts.set(ip, recent);
+    }
+  }
+}, rateLimitWindow);
+
 function createServer(server, config = {}) {
   serverConfig = config;
+  
+  if (config.maxclients) {
+    server.maxConnections = config.maxclients;
+  }
+  if (config.rateLimitMax) {
+    rateLimitMax = config.rateLimitMax;
+  }
+  if (config.rateLimitWindow) {
+    rateLimitWindow = config.rateLimitWindow;
+  }
   
   if (config.dir && config.dbfilename) {
     const rdbPath = path.join(config.dir, config.dbfilename);
@@ -43,8 +89,24 @@ function createServer(server, config = {}) {
   }
 
   server.on("connection", (socket) => {
+    const clientIp = socket.remoteAddress;
+    
+    if (serverConfig.maxclients && activeConnections.size >= serverConfig.maxclients) {
+      socket.write("-ERR max number of clients reached\r\n");
+      socket.end();
+      logger.warn("Max clients reached", { clientIp, activeConnections: activeConnections.size });
+      return;
+    }
+    
+    if (!checkRateLimit(clientIp)) {
+      socket.write("-ERR rate limit exceeded\r\n");
+      socket.end();
+      logger.warn("Rate limit exceeded", { clientIp });
+      return;
+    }
+    
     activeConnections.add(socket);
-    logger.info("Client connected", { clientIp: socket.remoteAddress, activeConnections: activeConnections.size });
+    logger.info("Client connected", { clientIp, activeConnections: activeConnections.size });
     
     let buffer = "";
     const state = {
@@ -58,11 +120,25 @@ function createServer(server, config = {}) {
     socket.on("data", (data) => {
       try {
         const startTime = Date.now();
-        buffer += data.toString();
+        let rawData = data.toString();
+        
+        for (let i = 0; i < rawData.length; i++) {
+          const code = rawData.charCodeAt(i);
+          if (code < 32 && code !== 10 && code !== 13) {
+            rawData = rawData.substring(0, i) + rawData.substring(i + 1);
+            i--;
+          }
+        }
+        
+        buffer += rawData;
 
         while (buffer.includes('\r\n')) {
           const parts = buffer.split('\r\n');
           const numArgs = parseInt(parts[0]?.slice(1));
+          
+          for (let i = 0; i < parts.length; i++) {
+            parts[i] = sanitizeInput(parts[i]);
+          }
           
           if (isNaN(numArgs) || numArgs < 0) {
             socket.write("-ERR invalid argument count\r\n");
@@ -121,6 +197,8 @@ function createServer(server, config = {}) {
             addReplica, 
             getReplicaCount: () => replicas.length,
             getReplicas: () => replicas,
+            getActiveConnections: () => activeConnections.size,
+            getMemoryUsage: () => process.memoryUsage(),
             dir: serverConfig.dir,
             dbfilename: serverConfig.dbfilename,
             appendonly: serverConfig.appendonly,

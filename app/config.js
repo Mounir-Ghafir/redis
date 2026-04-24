@@ -18,12 +18,14 @@ const CONFIG_DEFAULTS = {
   maxclients: 10000,
   tcpkeepalive: 300,
   timeout: 0,
+  ratelimitmax: 1000,
+  ratelimitwindow: 1000,
 };
 
 function parseValue(key, value) {
   const lowerKey = key.toLowerCase();
   
-  if (lowerKey === 'port' || lowerKey === 'maxclients' || lowerKey === 'timeout' || lowerKey === 'tcpkeepalive') {
+  if (lowerKey === 'port' || lowerKey === 'maxclients' || lowerKey === 'timeout' || lowerKey === 'tcpkeepalive' || lowerKey === 'ratelimitmax' || lowerKey === 'ratelimitwindow') {
     return parseInt(value, 10);
   }
   if (lowerKey === 'maxmemory') {
