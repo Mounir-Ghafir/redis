@@ -1,8 +1,33 @@
-# Dependency directories
+# Dependencies
 node_modules/
+
+# Logs
+npm-debug.log
+*.log
+
+# Runtime data
+dump.rdb
+*.rdb
+
+# Coverage
+coverage/
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test/Debug files
+test/
+tests/
+nul
 reproduce_get.js
 test Transaction.js
-PRODUCTION.md
-test
-nul
-tests
