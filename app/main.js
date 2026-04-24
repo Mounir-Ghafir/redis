@@ -10,6 +10,8 @@ let port = 6379;
 let isReplica = false;
 let masterHost = null;
 let masterPort = null;
+let dir = null;
+let dbfilename = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--port" && args[i + 1]) {
@@ -21,13 +23,19 @@ for (let i = 0; i < args.length; i++) {
     masterHost = host;
     masterPort = parseInt(portStr);
     i++;
+  } else if (args[i] === "--dir" && args[i + 1]) {
+    dir = args[i + 1];
+    i++;
+  } else if (args[i] === "--dbfilename" && args[i + 1]) {
+    dbfilename = args[i + 1];
+    i++;
   }
 }
 
 const server = net.createServer();
 const host = "127.0.0.1";
 
-createServer(server, { isReplica });
+createServer(server, { isReplica, dir, dbfilename });
 
 server.listen(port, host, () => {
   console.log(`Server running at ${host}:${port}`);

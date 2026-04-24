@@ -22,6 +22,8 @@ const { info } = require("./info");
 const { replconf } = require("./replconf");
 const { psync } = require("./psync");
 const { wait } = require("./wait");
+const { configGet } = require("./configget");
+const { keys } = require("./keys");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 
@@ -51,5 +53,7 @@ module.exports = {
   replconf,
   psync,
   wait,
+  configGet,
+  keys,
   cleanup,
 };

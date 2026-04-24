@@ -1,11 +1,23 @@
 const encoder = require("./encoder");
 const handlers = require("./handlers");
+const fs = require("fs");
+const path = require("path");
 
 const REPL_ID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
 const replicas = [];
 let globalOffset = 0;
+let serverConfig = {};
 
 function createServer(server, config = {}) {
+  serverConfig = config;
+  
+  if (config.dir && config.dbfilename) {
+    const rdbPath = path.join(config.dir, config.dbfilename);
+    if (fs.existsSync(rdbPath)) {
+      store.loadRdbFile(rdbPath);
+    }
+  }
+
   server.on("connection", (socket) => {
     let buffer = "";
     const state = {
@@ -45,6 +57,8 @@ function createServer(server, config = {}) {
           addReplica, 
           getReplicaCount: () => replicas.length,
           getReplicas: () => replicas,
+          dir: serverConfig.dir,
+          dbfilename: serverConfig.dbfilename,
         };
         const response = handler(parts, socket, state, serverInfo);
 
