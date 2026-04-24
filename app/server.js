@@ -10,6 +10,7 @@ const replicas = [];
 const subscriptions = new Map();
 let globalOffset = 0;
 let serverConfig = {};
+let activeConnections = new Set();
 
 function createServer(server, config = {}) {
   serverConfig = config;
@@ -42,6 +43,9 @@ function createServer(server, config = {}) {
   }
 
   server.on("connection", (socket) => {
+    activeConnections.add(socket);
+    logger.info("Client connected", { clientIp: socket.remoteAddress, activeConnections: activeConnections.size });
+    
     let buffer = "";
     const state = {
       inTransaction: false,
@@ -156,10 +160,11 @@ function createServer(server, config = {}) {
 
     socket.on("end", () => {
       try {
+        activeConnections.delete(socket);
         const idx = replicas.indexOf(socket);
         if (idx !== -1) replicas.splice(idx, 1);
         handlers.cleanup({}, socket, state);
-        logger.info("Client disconnected", { clientIp: socket.remoteAddress });
+        logger.info("Client disconnected", { clientIp: socket.remoteAddress, activeConnections: activeConnections.size });
       } catch (err) {
         logger.error("Disconnect error: " + err.message);
       }
@@ -170,6 +175,7 @@ function createServer(server, config = {}) {
     });
 
     socket.on("close", () => {
+      activeConnections.delete(socket);
       store.removeClientFromAllKeys(socket);
     });
   });
@@ -182,7 +188,7 @@ function propagateCommand(commandStr) {
     try {
       replica.write(commandStr);
     } catch (e) {
-      console.error("Failed to propagate:", e.message);
+      logger.error("Failed to propagate: " + e.message);
     }
   }
 }
@@ -191,4 +197,8 @@ function addReplica(socket) {
   replicas.push(socket);
 }
 
-module.exports = { createServer, addReplica };
+function getActiveConnections() {
+  return activeConnections.size;
+}
+
+module.exports = { createServer, addReplica, getActiveConnections };

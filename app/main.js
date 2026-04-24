@@ -3,25 +3,50 @@ const { createServer } = require("./server");
 const handlers = require("./handlers");
 const store = require("./store");
 const logger = require("./logger");
+const config = require("./config");
+const fs = require("fs");
+const path = require("path");
 
-logger.setLevel(logLevel);
-if (logFile) {
-  logger.setLogFile(logFile);
+const args = process.argv.slice(2);
+
+let configFile = null;
+let cliArgs = [];
+
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--conf' && args[i + 1]) {
+    configFile = args[i + 1];
+    i++;
+  } else {
+    cliArgs.push(args[i]);
+  }
 }
 
-logger.info("Starting Redis server", { port, dir, appendonly });
+const cfg = config.loadConfig(configFile, cliArgs);
+
+logger.setLevel(cfg.loglevel);
+if (cfg.logfile) {
+  logger.setLogFile(cfg.logfile);
+}
+
+logger.info("Starting Redis server", { port: cfg.port, dir: cfg.dir });
 
 const server = net.createServer();
-const host = "127.0.0.1";
 
-createServer(server, { isReplica, dir, dbfilename, appendonly, appenddirname, appendfilename, appendfsync });
+createServer(server, { 
+  isReplica: false, 
+  dir: cfg.dir, 
+  dbfilename: cfg.dbfilename, 
+  appendonly: cfg.appendonly, 
+  appenddirname: cfg.appenddirname, 
+  appendfilename: cfg.appendfilename, 
+  appendfsync: cfg.appendfsync,
+  maxmemory: cfg.maxmemory,
+  maxmemoryPolicy: cfg.maxmemoryPolicy,
+  requirepass: cfg.requirepass,
+});
 
-server.listen(port, host, () => {
-  console.log(`Server running at ${host}:${port}`);
-
-  if (isReplica && masterHost && masterPort) {
-    startReplicaHandshake(host, port, masterHost, masterPort);
-  }
+server.listen(cfg.port, cfg.bind, () => {
+  logger.info("Server started", { host: cfg.bind, port: cfg.port });
 });
 
 function startReplicaHandshake(localHost, localPort, masterHost, masterPort) {
@@ -104,6 +129,101 @@ function startReplicaHandshake(localHost, localPort, masterHost, masterPort) {
   });
 
   replica.on("error", (err) => {
-    console.error("Replica error:", err.message);
+    logger.error("Replica error: " + err.message);
   });
 }
+
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught Exception: " + err.message, { stack: err.stack });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Rejection", { reason: String(reason), stack: reason?.stack });
+});
+
+let isShuttingDown = false;
+
+const RDB_OPCODE_DB = 254;
+const RDB_OPCODE_EOF = 255;
+
+function saveRDB(dir, dbfilename) {
+  const rdbPath = path.join(dir, dbfilename);
+  const keys = store.getKeys();
+  
+  let data = Buffer.from([0x52, 0x45, 0x44, 0x49]); // REDI header
+  data = Buffer.concat([data, Buffer.alloc(4)]); // Reserved
+  
+  data = Buffer.concat([data, Buffer.from([RDB_OPCODE_DB])]);
+  const countBuf = Buffer.alloc(2);
+  countBuf.writeUInt16BE(keys.length, 0);
+  data = Buffer.concat([data, countBuf]);
+  
+  for (const key of keys) {
+    const entry = store.get(key);
+    if (entry && (!entry.expiry || entry.expiry > Date.now())) {
+      const k = Buffer.from(key);
+      const v = Buffer.from(String(entry.value));
+      data = Buffer.concat([data, Buffer.from([k.length]), k, Buffer.from([v.length]), v]);
+    }
+  }
+  
+  data = Buffer.concat([data, Buffer.from([RDB_OPCODE_EOF])]);
+  fs.writeFileSync(rdbPath, data);
+  logger.info("RDB saved", { path: rdbPath, keys: keys.length });
+}
+
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  logger.info("Graceful shutdown initiated", { signal });
+  
+  server.close(() => {
+    logger.info("Server closed, saving data...");
+    
+    if (cfg.appendonly === "yes") {
+      // AOF already has data, just note it's saved
+      logger.info("AOF sync complete");
+    }
+    
+    if (cfg.dir && cfg.dbfilename) {
+      try {
+        const rdbPath = path.join(cfg.dir, cfg.dbfilename);
+        const keys = store.getKeys();
+        
+        let data = Buffer.from([0x52, 0x45, 0x44, 0x49]);
+        
+        const numKeys = keys.length;
+        const buf = Buffer.alloc(2);
+        buf.writeUInt16BE(numKeys, 0);
+        
+        for (const key of keys) {
+          const entry = store.get(key);
+          if (entry && (!entry.expiry || entry.expiry > Date.now())) {
+            const k = Buffer.from(key);
+            const v = Buffer.from(String(entry.value));
+            data = Buffer.concat([data, Buffer.from([k.length]), k, Buffer.from([v.length]), v]);
+          }
+        }
+        
+        data = Buffer.concat([data, Buffer.from([RDB_OPCODE_EOF])]);
+        fs.writeFileSync(rdbPath, data);
+        logger.info("RDB saved", { path: rdbPath, keys: keys.length });
+      } catch (err) {
+        logger.error("RDB save failed: " + err.message);
+      }
+    }
+    
+    logger.info("Shutdown complete");
+    process.exit(0);
+  });
+  
+  setTimeout(() => {
+    logger.error("Shutdown timeout, forcing exit");
+    process.exit(1);
+  }, 10000);
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
