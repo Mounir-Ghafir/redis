@@ -3,5 +3,21 @@
   "version": "1.0.0",
   "dependencies": {
     "ioredis": "^5.10.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "rootDir": ".",
+    "coverageDirectory": "coverage",
+    "collectCoverageFrom": [
+      "app/handlers/**/*.js"
+    ]
   }
 }

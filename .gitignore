@@ -2,5 +2,7 @@
 node_modules/
 reproduce_get.js
 test Transaction.js
+PRODUCTION.md
 test
 nul
+tests

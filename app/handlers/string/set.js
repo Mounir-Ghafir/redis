@@ -1,5 +1,6 @@
-const store = require("../../store");
-const encoder = require("../../encoder");
+const path = require('path');
+const store = require(path.resolve(__dirname, '..', '..', 'store'));
+const encoder = require(path.resolve(__dirname, '..', '..', 'encoder'));
 
 function set(args, socket) {
   const key = args[4];
