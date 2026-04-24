@@ -1,5 +1,4 @@
 const encoder = require("./encoder");
-const handlers = require("./handlers");
 const store = require("./store");
 const fs = require("fs");
 const path = require("path");
@@ -47,6 +46,14 @@ setInterval(() => {
     }
   }
 }, rateLimitWindow);
+
+let lastGC = Date.now();
+setInterval(() => {
+  if (Date.now() - lastGC > 60000) {
+    if (global.gc) global.gc();
+    lastGC = Date.now();
+  }
+}, 60000);
 
 function createServer(server, config = {}) {
   serverConfig = config;
@@ -190,6 +197,7 @@ function createServer(server, config = {}) {
           const rawData = parts.slice(0, expectedParts).join('\r\n') + '\r\n';
           globalOffset += rawData.length;
 
+          const handlers = require("./handlers");
           const handler = handlers[command.toLowerCase()] || handlers.unknown;
           const serverInfo = { 
             replId: REPL_ID, 
