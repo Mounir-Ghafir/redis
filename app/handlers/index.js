@@ -3,6 +3,8 @@ const echo = require("./echo");
 const set = require("./set");
 const get = require("./get");
 const incr = require("./incr");
+const multi = require("./multi");
+const exec = require("./exec");
 const rpush = require("./rpush");
 const lpush = require("./lpush");
 const lpop = require("./lpop");
@@ -22,6 +24,8 @@ module.exports = {
   set,
   get,
   incr,
+  multi,
+  exec,
   rpush,
   lpush,
   lpop,

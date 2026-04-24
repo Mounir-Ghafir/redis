@@ -14,6 +14,7 @@ function set(args, socket) {
 
   store.set(key, { type: "string", value, expiry });
   encoder.writeSimpleString(socket, "OK");
+  return { type: "simple", value: "OK" };
 }
 
 module.exports = set;
