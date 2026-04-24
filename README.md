@@ -1,6 +1,6 @@
 # Redis Server Implementation in Node.js
 
-A custom implementation of a Redis-compatible server built with Node.js. This project implements the RESP (Redis Serialization Protocol) and supports various data structures including Strings, Lists, and Streams.
+A custom implementation of a Redis-compatible server built with Node.js. This project implements the RESP (Redis Serialization Protocol) and supports various data structures including Strings, Lists, Streams, and Transactions.
 
 ## Project Structure
 
@@ -24,6 +24,12 @@ Every command supported by this server is managed by a specific handler in the `
 ### String Commands
 - **set.js**: Stores a string value at a specified key. Supports optional `PX` (expiry in milliseconds).
 - **get.js**: Retrieves the string value stored at a key. Returns null if the key doesn't exist or has expired.
+- **incr.js**: Increments the value of a key by 1. Creates key with value 1 if it doesn't exist. Returns error if value is not a valid integer.
+
+### Transaction Commands
+- **multi.js**: Starts a transaction. After this, commands are queued instead of executed.
+- **exec.js**: Executes all queued commands in a transaction and returns their responses as an array.
+- **discard.js**: Discards all queued commands in a transaction and aborts the transaction.
 
 ### List Commands
 - **lpush.js**: Inserts elements at the head of a list.

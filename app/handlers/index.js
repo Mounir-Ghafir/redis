@@ -5,6 +5,7 @@ const get = require("./get");
 const incr = require("./incr");
 const multi = require("./multi");
 const exec = require("./exec");
+const discard = require("./discard");
 const rpush = require("./rpush");
 const lpush = require("./lpush");
 const lpop = require("./lpop");
@@ -26,6 +27,7 @@ module.exports = {
   incr,
   multi,
   exec,
+  discard,
   rpush,
   lpush,
   lpop,
