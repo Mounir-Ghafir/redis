@@ -5,6 +5,17 @@ const store = require("./store");
 
 console.log("Logs from your program will appear here!");
 
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err.message);
+  console.error("Stack trace:", err.stack);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  console.error("Stack trace:", reason?.stack);
+});
+
 const args = process.argv.slice(2);
 let port = 6379;
 let isReplica = false;

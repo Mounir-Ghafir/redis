@@ -34,7 +34,7 @@ function createServer(server, config = {}) {
     
     const manifestPath = path.join(aofDir, config.appendfilename + ".manifest");
     if (!fs.existsSync(manifestPath)) {
-      fs.writeFileSync(manifestPath, `file ${aofBaseName} seq 1 type i\n`);
+      fs.writeFileSync(manifestPath, "file " + aofBaseName + " seq 1 type i\n");
     }
     
     store.replayAof(aofDir, config.appendfilename);
@@ -48,131 +48,128 @@ function createServer(server, config = {}) {
       isReplica: false,
       subscriptions: new Set(),
       inSubscribeMode: false,
-      ...config,
     };
 
     socket.on("data", (data) => {
-      buffer += data.toString();
-      console.log("Server received:", JSON.stringify(buffer));
+      try {
+        buffer += data.toString();
 
-      while (buffer.includes('\r\n')) {
-        const parts = buffer.split('\r\n');
-        const numArgs = parseInt(parts[0]?.slice(1));
+        while (buffer.includes('\r\n')) {
+          const parts = buffer.split('\r\n');
+          const numArgs = parseInt(parts[0]?.slice(1));
+          
+          if (isNaN(numArgs) || numArgs < 0) {
+            socket.write("-ERR invalid argument count\r\n");
+            buffer = "";
+            break;
+          }
 
-        const expectedParts = 1 + numArgs * 2;
-        if (parts.length < expectedParts) break;
+          const expectedParts = 1 + numArgs * 2;
+          if (parts.length < expectedParts) break;
 
-        const command = parts[2]?.toUpperCase();
-
-        const users = require("./store").users || {};
-        const isAuthCommand = command === "AUTH" || command === "ACL" || command === "ACLWHOAMI" || command === "ACLGETUSER" || command === "ACLSETUSER";
-        const currentUser = store.getAuthenticatedUser(socket);
-        const requiresAuth = users.default && users.default.passwords && users.default.passwords.length > 0;
-        
-        if (requiresAuth && !currentUser && !isAuthCommand) {
-          socket.write("-ERR NOAUTH Authentication required.\r\n");
-          buffer = parts.slice(expectedParts).join('\r\n');
-          continue;
-        }
-
-        if (state.inSubscribeMode) {
-          const allowedCommands = ["SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT", "RESET"];
-          if (!allowedCommands.includes(command)) {
-            socket.write(`-ERR Can't execute '${command}': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context\r\n`);
+          const command = parts[2]?.toUpperCase();
+          if (!command) {
+            socket.write("-ERR empty command\r\n");
             buffer = parts.slice(expectedParts).join('\r\n');
             continue;
           }
-        }
 
-        if (state.inTransaction && command !== "EXEC" && command !== "MULTI" && command !== "DISCARD" && command !== "WATCH") {
-          state.queuedCommands.push(parts.slice(0, expectedParts));
-          socket.write("+QUEUED\r\n");
-          buffer = parts.slice(expectedParts).join('\r\n');
-          continue;
-        }
+          const users = store.users || {};
+          const isAuthCommand = command === "AUTH" || command === "ACLWHOAMI" || command === "ACLGETUSER" || command === "ACLSETUSER";
+          const currentUser = store.getAuthenticatedUser(socket);
+          const requiresAuth = users.default && users.default.passwords && users.default.passwords.length > 0;
+          
+          if (requiresAuth && !currentUser && !isAuthCommand) {
+            socket.write("-ERR NOAUTH Authentication required.\r\n");
+            buffer = parts.slice(expectedParts).join('\r\n');
+            continue;
+          }
 
-        const rawData = parts.slice(0, expectedParts).join('\r\n') + '\r\n';
-        globalOffset += rawData.length;
-
-        const handler = handlers[command.toLowerCase()] || handlers.unknown;
-        const serverInfo = { 
-          replId: REPL_ID, 
-          replOffset: globalOffset, 
-          addReplica, 
-          getReplicaCount: () => replicas.length,
-          getReplicas: () => replicas,
-          dir: serverConfig.dir,
-          dbfilename: serverConfig.dbfilename,
-          appendonly: serverConfig.appendonly,
-          appenddirname: serverConfig.appenddirname,
-          appendfilename: serverConfig.appendfilename,
-          appendfsync: serverConfig.appendfsync,
-          addSubscription: (channel, socket) => {
-            if (!subscriptions.has(channel)) {
-              subscriptions.set(channel, new Set());
-            }
-            subscriptions.get(channel).add(socket);
-          },
-          removeSubscription: (channel, socket) => {
-            if (subscriptions.has(channel)) {
-              subscriptions.get(channel).delete(socket);
-            }
-          },
-          getSubscribers: (channel) => {
-            return Array.from(subscriptions.get(channel) || []);
-          },
-        };
-        const response = handler(parts, socket, state, serverInfo);
-
-        if (state.isReplica && command !== "PSYNC" && command !== "PING" && command !== "REPLCONF") {
-          // This is a propagated command to a replica, no response needed
-        } else if (!state.isReplica && command === "SET") {
-          propagateCommand(rawData, socket);
-        }
-
-        if (serverConfig.appendonly === "yes") {
-          const aofDir = path.join(serverConfig.dir, serverConfig.appenddirname);
-          const manifestPath = path.join(aofDir, serverConfig.appendfilename + ".manifest");
-          if (fs.existsSync(manifestPath)) {
-            const manifest = fs.readFileSync(manifestPath, "utf8");
-            const match = manifest.match(/file\s+(\S+)\s+seq\s+(\d+)\s+type\s+(\w)/);
-            if (match) {
-              const aofPath = path.join(aofDir, match[1]);
-              if (isWriteCommand(command)) {
-                fs.appendFileSync(aofPath, rawData);
-                if (serverConfig.appendfsync === "always") {
-                  fs.fsyncSync(fs.openSync(aofPath, "r+"));
-                }
-              }
+          if (state.inSubscribeMode) {
+            const allowedCommands = ["SUBSCRIBE", "UNSUBSCRIBE", "PING", "QUIT", "RESET"];
+            if (!allowedCommands.includes(command)) {
+              socket.write("-ERR only PING/QUIT allowed in subscribe mode\r\n");
+              buffer = parts.slice(expectedParts).join('\r\n');
+              continue;
             }
           }
-        }
 
-        buffer = parts.slice(expectedParts).join('\r\n');
+          if (state.inTransaction && command !== "EXEC" && command !== "MULTI" && command !== "DISCARD" && command !== "WATCH") {
+            state.queuedCommands.push(parts.slice(0, expectedParts));
+            socket.write("+QUEUED\r\n");
+            buffer = parts.slice(expectedParts).join('\r\n');
+            continue;
+          }
+
+          const rawData = parts.slice(0, expectedParts).join('\r\n') + '\r\n';
+          globalOffset += rawData.length;
+
+          const handler = handlers[command.toLowerCase()] || handlers.unknown;
+          const serverInfo = { 
+            replId: REPL_ID, 
+            replOffset: globalOffset, 
+            addReplica, 
+            getReplicaCount: () => replicas.length,
+            getReplicas: () => replicas,
+            dir: serverConfig.dir,
+            dbfilename: serverConfig.dbfilename,
+            appendonly: serverConfig.appendonly,
+            appenddirname: serverConfig.appenddirname,
+            appendfilename: serverConfig.appendfilename,
+            addSubscription: (channel, sock) => {
+              if (!subscriptions.has(channel)) {
+                subscriptions.set(channel, new Set());
+              }
+              subscriptions.get(channel).add(sock);
+            },
+            removeSubscription: (channel, sock) => {
+              if (subscriptions.has(channel)) {
+                subscriptions.get(channel).delete(sock);
+              }
+            },
+            getSubscribers: (channel) => {
+              return Array.from(subscriptions.get(channel) || []);
+            },
+          };
+          handler(parts, socket, state, serverInfo);
+
+          if (!state.isReplica && command === "SET") {
+            propagateCommand(rawData);
+          }
+
+          buffer = parts.slice(expectedParts).join('\r\n');
+        }
+      } catch (err) {
+        console.error("Error processing command:", err.message);
+        console.error("Stack:", err.stack);
+        socket.write("-ERR Internal server error\r\n");
       }
     });
 
     socket.on("end", () => {
-      const idx = replicas.indexOf(socket);
-      if (idx !== -1) replicas.splice(idx, 1);
-      handlers.cleanup({}, socket);
-      console.log("Client disconnected");
+      try {
+        const idx = replicas.indexOf(socket);
+        if (idx !== -1) replicas.splice(idx, 1);
+        handlers.cleanup({}, socket, state);
+        console.log("Client disconnected");
+      } catch (err) {
+        console.error("Disconnect error:", err.message);
+      }
     });
 
     socket.on("error", (err) => {
       console.error("Socket error:", err.message);
+    });
+
+    socket.on("close", () => {
+      store.removeClientFromAllKeys(socket);
     });
   });
 
   return server;
 }
 
-function isWriteCommand(command) {
-  const writeCommands = ["SET", "DEL", "INCR", "DECR", "LPUSH", "RPUSH", "LPOP", "RPOP", "LREM", "LSET", "SADD", "SREM", "SMOVE", "ZADD", "ZREM", "ZINCRBY", "APPEND"];
-  return writeCommands.includes(command);
-}
-
-function propagateCommand(commandStr, originSocket) {
+function propagateCommand(commandStr) {
   for (const replica of replicas) {
     try {
       replica.write(commandStr);
