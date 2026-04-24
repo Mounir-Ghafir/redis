@@ -2,6 +2,7 @@ const ping = require("./ping");
 const echo = require("./echo");
 const set = require("./set");
 const get = require("./get");
+const incr = require("./incr");
 const rpush = require("./rpush");
 const lpush = require("./lpush");
 const lpop = require("./lpop");
@@ -20,6 +21,7 @@ module.exports = {
   echo,
   set,
   get,
+  incr,
   rpush,
   lpush,
   lpop,
