@@ -1,7 +1,7 @@
 const encoder = require("../encoder");
 const store = require("../store");
 
-function watch(args, socket, state) {
+function watch(args, socket, state, serverInfo) {
   console.log("WATCH called, inTransaction:", state.inTransaction);
   if (state.inTransaction) {
     encoder.writeError(socket, "WATCH inside MULTI is not allowed");

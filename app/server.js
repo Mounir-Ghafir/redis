@@ -1,12 +1,18 @@
 const encoder = require("./encoder");
 const handlers = require("./handlers");
 
-function createServer(server) {
+const REPL_ID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+const replicas = [];
+let globalOffset = 0;
+
+function createServer(server, config = {}) {
   server.on("connection", (socket) => {
     let buffer = "";
     const state = {
       inTransaction: false,
       queuedCommands: [],
+      isReplica: false,
+      ...config,
     };
 
     socket.on("data", (data) => {
@@ -29,14 +35,32 @@ function createServer(server) {
           continue;
         }
 
+        const rawData = parts.slice(0, expectedParts).join('\r\n') + '\r\n';
+        globalOffset += rawData.length;
+
         const handler = handlers[command.toLowerCase()] || handlers.unknown;
-        handler(parts, socket, state);
+        const serverInfo = { 
+          replId: REPL_ID, 
+          replOffset: globalOffset, 
+          addReplica, 
+          getReplicaCount: () => replicas.length,
+          getReplicas: () => replicas,
+        };
+        const response = handler(parts, socket, state, serverInfo);
+
+        if (state.isReplica && command !== "PSYNC" && command !== "PING" && command !== "REPLCONF") {
+          // This is a propagated command to a replica, no response needed
+        } else if (!state.isReplica && command === "SET") {
+          propagateCommand(rawData, socket);
+        }
 
         buffer = parts.slice(expectedParts).join('\r\n');
       }
     });
 
     socket.on("end", () => {
+      const idx = replicas.indexOf(socket);
+      if (idx !== -1) replicas.splice(idx, 1);
       handlers.cleanup({}, socket);
       console.log("Client disconnected");
     });
@@ -49,4 +73,18 @@ function createServer(server) {
   return server;
 }
 
-module.exports = { createServer };
+function propagateCommand(commandStr, originSocket) {
+  for (const replica of replicas) {
+    try {
+      replica.write(commandStr);
+    } catch (e) {
+      console.error("Failed to propagate:", e.message);
+    }
+  }
+}
+
+function addReplica(socket) {
+  replicas.push(socket);
+}
+
+module.exports = { createServer, addReplica };

@@ -18,6 +18,10 @@ const type = require("./type");
 const xadd = require("./xadd");
 const xrange = require("./xrange");
 const { xread } = require("./xread");
+const { info } = require("./info");
+const { replconf } = require("./replconf");
+const { psync } = require("./psync");
+const { wait } = require("./wait");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 
@@ -43,5 +47,9 @@ module.exports = {
   xadd,
   xrange,
   xread,
+  info,
+  replconf,
+  psync,
+  wait,
   cleanup,
 };

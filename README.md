@@ -18,8 +18,22 @@ Every command supported by this server is managed by a specific handler in the `
 - **ping.js**: Responds with `PONG`. Used to test the connection.
 - **echo.js**: Returns the provided message back to the client.
 - **type.js**: Returns the type of the value stored at a key (e.g., `string`, `list`, `stream`, or `none`).
+- **info.js**: Returns server information and statistics. Supports `replication` section with role, master_replid, and master_repl_offset.
 - **cleanup.js**: Handles resource cleanup when a client disconnects.
 - **unknown.js**: Returns an error message for unsupported or unrecognized commands.
+
+## Usage
+
+Run the server with optional flags:
+- `--port <port>`: Start the server on a custom port (default: 6379)
+- `--replicaof <host> <port>`: Start as a replica connecting to the specified master
+
+## Replication
+
+When running as a replica with `--replicaof`, the server performs a 3-step handshake:
+1. Sends PING to the master
+2. Sends REPLCONF listening-port and REPLCONF capa psync2
+3. Sends PSYNC ? -1 to synchronize
 
 ### String Commands
 - **set.js**: Stores a string value at a specified key. Supports optional `PX` (expiry in milliseconds).

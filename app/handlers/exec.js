@@ -5,7 +5,7 @@ const setHandler = require("./set");
 const getHandler = require("./get");
 const incrHandler = require("./incr");
 
-function exec(args, socket, state) {
+function exec(args, socket, state, serverInfo) {
   if (!state.inTransaction) {
     encoder.writeError(socket, "EXEC without MULTI");
     return;

@@ -1,6 +1,6 @@
 const encoder = require("../encoder");
 
-function discard(args, socket, state) {
+function discard(args, socket, state, serverInfo) {
   if (!state.inTransaction) {
     encoder.writeError(socket, "DISCARD without MULTI");
     return;
