@@ -200,6 +200,103 @@ function replayAof(aofDir, appendFilename) {
   }
 }
 
+function zadd(key, score, member) {
+  if (!store[key]) {
+    store[key] = { type: "zset", members: new Map() };
+  }
+  if (store[key].type !== "zset") {
+    return 0;
+  }
+  
+  const zset = store[key];
+  const isNew = !zset.members.has(member);
+  zset.members.set(member, score);
+  return isNew ? 1 : 0;
+}
+
+function zrank(key, member) {
+  if (!store[key] || store[key].type !== "zset") {
+    return null;
+  }
+  
+  const zset = store[key];
+  if (!zset.members.has(member)) {
+    return null;
+  }
+  
+  const sorted = Array.from(zset.members.entries()).sort((a, b) => {
+    if (a[1] !== b[1]) return a[1] - b[1];
+    return a[0].localeCompare(b[0]);
+  });
+  
+  for (let i = 0; i < sorted.length; i++) {
+    if (sorted[i][0] === member) {
+      return i;
+    }
+  }
+  return null;
+}
+
+function zrange(key, start, stop) {
+  if (!store[key] || store[key].type !== "zset") {
+    return [];
+  }
+  
+  const zset = store[key];
+  const sorted = Array.from(zset.members.entries()).sort((a, b) => {
+    if (a[1] !== b[1]) return a[1] - b[1];
+    return a[0].localeCompare(b[0]);
+  });
+  
+  let startIdx = start;
+  let stopIdx = stop;
+  
+  if (startIdx < 0) startIdx = sorted.length + startIdx;
+  if (stopIdx < 0) stopIdx = sorted.length + stopIdx;
+  
+  if (startIdx < 0) startIdx = 0;
+  if (stopIdx < 0) stopIdx = 0;
+  if (startIdx >= sorted.length) return [];
+  if (stopIdx >= sorted.length) stopIdx = sorted.length - 1;
+  if (startIdx > stopIdx) return [];
+  
+  const result = [];
+  for (let i = startIdx; i <= stopIdx && i < sorted.length; i++) {
+    result.push(sorted[i][0]);
+  }
+  return result;
+}
+
+function zcard(key) {
+  if (!store[key] || store[key].type !== "zset") {
+    return 0;
+  }
+  return store[key].members.size;
+}
+
+function zscore(key, member) {
+  if (!store[key] || store[key].type !== "zset") {
+    return null;
+  }
+  const zset = store[key];
+  if (!zset.members.has(member)) {
+    return null;
+  }
+  return zset.members.get(member).toString();
+}
+
+function zrem(key, member) {
+  if (!store[key] || store[key].type !== "zset") {
+    return 0;
+  }
+  const zset = store[key];
+  if (!zset.members.has(member)) {
+    return 0;
+  }
+  zset.members.delete(member);
+  return 1;
+}
+
 module.exports = {
   store,
   dirty,
@@ -219,4 +316,10 @@ module.exports = {
   removeClientFromAllKeys,
   loadRdbFile,
   replayAof,
+  zadd,
+  zrank,
+  zrange,
+  zcard,
+  zscore,
+  zrem,
 };

@@ -27,6 +27,12 @@ const { keys } = require("./keys");
 const { subscribe } = require("./subscribe");
 const { unsubscribe } = require("./unsubscribe");
 const { publish } = require("./publish");
+const { zadd } = require("./zadd");
+const { zrank } = require("./zrank");
+const { zrange } = require("./zrange");
+const { zcard } = require("./zcard");
+const { zscore } = require("./zscore");
+const { zrem } = require("./zrem");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 
@@ -61,5 +67,11 @@ module.exports = {
   subscribe,
   unsubscribe,
   publish,
+  zadd,
+  zrank,
+  zrange,
+  zcard,
+  zscore,
+  zrem,
   cleanup,
 };

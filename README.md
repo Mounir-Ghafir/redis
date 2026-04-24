@@ -60,6 +60,14 @@ Run the server with optional flags:
 - **xrange.js**: Returns entries within a range of IDs.
 - **xread.js**: Reads data from streams.
 
+### Sorted Set Commands
+- **zadd.js**: Add member to sorted set with score.
+- **zrank.js**: Get rank (index) of member in sorted set.
+- **zrange.js**: Get members by index range.
+- **zcard.js**: Get count of members in sorted set.
+- **zscore.js**: Get score of member.
+- **zrem.js**: Remove member from sorted set.
+
 ### Replication Commands
 - **psync.js**: Handles full resynchronization.
 - **wait.js**: Waits for replicas to acknowledge.
