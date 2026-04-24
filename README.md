@@ -27,8 +27,9 @@ Every command supported by this server is managed by a specific handler in the `
 - **incr.js**: Increments the value of a key by 1. Creates key with value 1 if it doesn't exist. Returns error if value is not a valid integer.
 
 ### Transaction Commands
+- **watch.js**: Monitors keys for changes. If called inside a transaction, returns an error.
 - **multi.js**: Starts a transaction. After this, commands are queued instead of executed.
-- **exec.js**: Executes all queued commands in a transaction and returns their responses as an array.
+- **exec.js**: Executes all queued commands in a transaction and returns their responses as an array. If any watched key was modified, returns null array and discards queued commands.
 - **discard.js**: Discards all queued commands in a transaction and aborts the transaction.
 
 ### List Commands

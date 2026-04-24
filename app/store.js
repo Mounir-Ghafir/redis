@@ -1,4 +1,5 @@
 const store = {};
+const dirty = {};
 const waitingClients = {};
 
 function get(key) {
@@ -19,6 +20,18 @@ function deleteKey(key) {
 
 function getKeys() {
   return Object.keys(store);
+}
+
+function markDirty(key) {
+  dirty[key] = true;
+}
+
+function clearDirty(key) {
+  delete dirty[key];
+}
+
+function isDirty(key) {
+  return !!dirty[key];
 }
 
 function addWaitingClient(key, client) {
@@ -53,12 +66,15 @@ function removeClientFromAllKeys(socket) {
 
 module.exports = {
   store,
-  waitingClients,
+  dirty,
   get,
   set,
   has,
   deleteKey,
   getKeys,
+  markDirty,
+  clearDirty,
+  isDirty,
   addWaitingClient,
   removeWaitingClient,
   getWaitingClients,

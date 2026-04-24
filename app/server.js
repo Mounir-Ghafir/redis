@@ -1,4 +1,4 @@
-const encoder = require("../encoder");
+const encoder = require("./encoder");
 const handlers = require("./handlers");
 
 function createServer(server) {
@@ -11,6 +11,7 @@ function createServer(server) {
 
     socket.on("data", (data) => {
       buffer += data.toString();
+      console.log("Server received:", JSON.stringify(buffer));
 
       while (buffer.includes('\r\n')) {
         const parts = buffer.split('\r\n');
@@ -21,7 +22,7 @@ function createServer(server) {
 
         const command = parts[2]?.toUpperCase();
 
-        if (state.inTransaction && command !== "EXEC" && command !== "MULTI") {
+        if (state.inTransaction && command !== "EXEC" && command !== "MULTI" && command !== "DISCARD" && command !== "WATCH") {
           state.queuedCommands.push(parts.slice(0, expectedParts));
           socket.write("+QUEUED\r\n");
           buffer = parts.slice(expectedParts).join('\r\n');

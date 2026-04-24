@@ -25,7 +25,11 @@ function writeArray(socket, items) {
       if (item === null) {
         response += "$-1\r\n";
       } else if (typeof item === "string") {
-        response += `$${item.length}\r\n${item}\r\n`;
+        if (item.startsWith("+") || item.startsWith("-") || item.startsWith(":") || item.startsWith("$") || item.startsWith("*")) {
+          response += item;
+        } else {
+          response += `$${item.length}\r\n${item}\r\n`;
+        }
       } else if (typeof item === "number") {
         response += `:${item}\r\n`;
       } else if (Array.isArray(item)) {
@@ -41,6 +45,10 @@ function writeArray(socket, items) {
 
 function writeError(socket, message) {
   socket.write(`-ERR ${message}\r\n`);
+}
+
+function writeNullArray(socket) {
+  socket.write("*-1\r\n");
 }
 
 function writeStreamEntries(socket, entries) {
@@ -66,6 +74,7 @@ module.exports = {
   writeInteger,
   writeArray,
   writeError,
+  writeNullArray,
   writeStreamEntries,
   writeKeyValue,
 };

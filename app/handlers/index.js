@@ -6,6 +6,8 @@ const incr = require("./incr");
 const multi = require("./multi");
 const exec = require("./exec");
 const discard = require("./discard");
+const watch = require("./watch");
+const unwatch = require("./unwatch");
 const rpush = require("./rpush");
 const lpush = require("./lpush");
 const lpop = require("./lpop");
@@ -28,6 +30,8 @@ module.exports = {
   multi,
   exec,
   discard,
+  watch,
+  unwatch,
   rpush,
   lpush,
   lpop,

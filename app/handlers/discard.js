@@ -8,6 +8,7 @@ function discard(args, socket, state) {
 
   state.inTransaction = false;
   state.queuedCommands = [];
+  state.watchedKeys = null;
   encoder.writeSimpleString(socket, "OK");
 }
 

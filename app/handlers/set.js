@@ -12,6 +12,7 @@ function set(args, socket) {
     expiry = Date.now() + duration;
   }
 
+  store.markDirty(key);
   store.set(key, { type: "string", value, expiry });
   encoder.writeSimpleString(socket, "OK");
   return { type: "simple", value: "OK" };

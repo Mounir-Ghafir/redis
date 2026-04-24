@@ -19,9 +19,10 @@ function get(args, socket) {
 
   if (!entry || (entry.expiry && Date.now() > entry.expiry)) {
     if (entry) store.deleteKey(key);
-    return null;
+    encoder.writeBulkString(socket, null);
+    return;
   }
-  return entry.value;
+  encoder.writeBulkString(socket, entry.value);
 }
 
 module.exports = get;
