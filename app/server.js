@@ -5,6 +5,7 @@ const path = require("path");
 
 const REPL_ID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
 const replicas = [];
+const subscriptions = new Map();
 let globalOffset = 0;
 let serverConfig = {};
 
@@ -44,6 +45,8 @@ function createServer(server, config = {}) {
       inTransaction: false,
       queuedCommands: [],
       isReplica: false,
+      subscriptions: new Set(),
+      inSubscribeMode: false,
       ...config,
     };
 
@@ -59,6 +62,15 @@ function createServer(server, config = {}) {
         if (parts.length < expectedParts) break;
 
         const command = parts[2]?.toUpperCase();
+
+        if (state.inSubscribeMode) {
+          const allowedCommands = ["SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT", "RESET"];
+          if (!allowedCommands.includes(command)) {
+            socket.write(`-ERR Can't execute '${command}': only (P|S)SUBSCRIBE / (P|S)UNSUBSCRIBE / PING / QUIT / RESET are allowed in this context\r\n`);
+            buffer = parts.slice(expectedParts).join('\r\n');
+            continue;
+          }
+        }
 
         if (state.inTransaction && command !== "EXEC" && command !== "MULTI" && command !== "DISCARD" && command !== "WATCH") {
           state.queuedCommands.push(parts.slice(0, expectedParts));
@@ -83,6 +95,20 @@ function createServer(server, config = {}) {
           appenddirname: serverConfig.appenddirname,
           appendfilename: serverConfig.appendfilename,
           appendfsync: serverConfig.appendfsync,
+          addSubscription: (channel, socket) => {
+            if (!subscriptions.has(channel)) {
+              subscriptions.set(channel, new Set());
+            }
+            subscriptions.get(channel).add(socket);
+          },
+          removeSubscription: (channel, socket) => {
+            if (subscriptions.has(channel)) {
+              subscriptions.get(channel).delete(socket);
+            }
+          },
+          getSubscribers: (channel) => {
+            return Array.from(subscriptions.get(channel) || []);
+          },
         };
         const response = handler(parts, socket, state, serverInfo);
 

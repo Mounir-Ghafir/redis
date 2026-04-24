@@ -65,6 +65,26 @@ Run the server with optional flags:
 - **wait.js**: Waits for replicas to acknowledge.
 - **replconf.js**: Handles REPLCONFIG commands.
 
+### Pub/Sub Commands
+- **subscribe.js**: Subscribe to a channel.
+- **unsubscribe.js**: Unsubscribe from a channel.
+- **publish.js**: Publish message to channel.
+
+## Pub/Sub
+
+### Subscribe Mode
+After SUBSCRIBE, client enters "Subscribed mode" where only these commands are allowed:
+- SUBSCRIBE, UNSUBSCRIBE, PSUBSCRIBE, PUNSUBSCRIBE, PING, QUIT, RESET
+Other commands return error.
+
+### PING in Subscribe Mode
+Returns ["pong", ""] instead of +PONG
+
+### Commands
+- **SUBSCRIBE channel**: Subscribe to channel, returns ["subscribe", channel, count]
+- **UNSUBSCRIBE channel**: Unsubscribe from channel, returns ["unsubscribe", channel, count]  
+- **PUBLISH channel message**: Deliver message to subscribers, returns count of subscribers
+
 ## RDB Persistence
 
 When started with `--dir` and `--dbfilename`, the server loads keys from the RDB file:

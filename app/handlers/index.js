@@ -24,6 +24,9 @@ const { psync } = require("./psync");
 const { wait } = require("./wait");
 const { configGet } = require("./configget");
 const { keys } = require("./keys");
+const { subscribe } = require("./subscribe");
+const { unsubscribe } = require("./unsubscribe");
+const { publish } = require("./publish");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 
@@ -55,5 +58,8 @@ module.exports = {
   wait,
   configGet,
   keys,
+  subscribe,
+  unsubscribe,
+  publish,
   cleanup,
 };
