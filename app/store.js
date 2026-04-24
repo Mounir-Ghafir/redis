@@ -297,6 +297,101 @@ function zrem(key, member) {
   return 1;
 }
 
+const PI = Math.PI;
+const EARTH_RADIUS = 6372797.560856;
+
+function llEncode(lat, lng) {
+  const x = Math.round((lng + 180) * (2**26 / 360));
+  const y = Math.min(Math.round((lat + 90) * (2**26 / 180)), (2**26) - 1);
+  const latN = parseInt(x.toString(2).padStart(26, '0').slice(0, 26 - 1), 2);
+  const lonN = parseInt(y.toString(2).padStart(26, '0'), 2);
+  return ((lonN << (26 - 1)) + latN);
+}
+
+function llDecode(score) {
+  const bits = score.toString(2).padStart(52, '0');
+  const lonN = parseInt(bits.slice(0, 26), 2);
+  const latN = parseInt(bits.slice(26), 2);
+  const lng = (lonN / (2**26 - 1) * 360) - 180;
+  const lat = ((latN + 0.5) / (2**26 - 1) * 180) - 90;
+  return [lng, lat];
+}
+
+function geoadd(key, lng, lat, member) {
+  if (!store[key]) {
+    store[key] = { type: "zset", members: new Map() };
+  }
+  if (store[key].type !== "zset") {
+    store[key] = { type: "zset", members: new Map() };
+  }
+  
+  const score = llEncode(lat, lng);
+  const zset = store[key];
+  const isNew = !zset.members.has(member);
+  zset.members.set(member, score);
+  return isNew ? 1 : 0;
+}
+
+function geopos(key, member) {
+  if (!store[key] || store[key].type !== "zset") {
+    return null;
+  }
+  const zset = store[key];
+  if (!zset.members.has(member)) {
+    return null;
+  }
+  const score = zset.members.get(member);
+  const [lng, lat] = llDecode(score);
+  return [lng.toString(), lat.toString()];
+}
+
+function geodist(key, member1, member2) {
+  if (!store[key] || store[key].type !== "zset") {
+    return null;
+  }
+  const zset = store[key];
+  if (!zset.members.has(member1) || !zset.members.has(member2)) {
+    return null;
+  }
+  
+  const [lng1, lat1] = llDecode(zset.members.get(member1));
+  const [lng2, lat2] = llDecode(zset.members.get(member2));
+  
+  const dLat = (lat2 - lat1) * PI / 180;
+  const dLng = (lng2 - lng1) * PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + 
+            Math.cos(lat1 * PI / 180) * Math.cos(lat2 * PI / 180) * 
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = EARTH_RADIUS * c;
+  return distance.toFixed(4);
+}
+
+function geosearch(key, lng, lat, radius, unit) {
+  if (!store[key] || store[key].type !== "zset") {
+    return [];
+  }
+  
+  const zset = store[key];
+  const results = [];
+  const radiusM = unit === 'km' ? radius * 1000 : unit === 'mi' ? radius * 1609.34 : radius;
+  
+  for (const [member, score] of zset.members) {
+    const [mlng, mlat] = llDecode(score);
+    const dLat = (mlat - lat) * PI / 180;
+    const dLng = (mlng - lng) * PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + 
+              Math.cos(lat * PI / 180) * Math.cos(mlat * PI / 180) * 
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = EARTH_RADIUS * c;
+    if (distance <= radiusM) {
+      results.push(member);
+    }
+  }
+  return results;
+}
+
 module.exports = {
   store,
   dirty,
@@ -322,4 +417,8 @@ module.exports = {
   zcard,
   zscore,
   zrem,
+  geoadd,
+  geopos,
+  geodist,
+  geosearch,
 };

@@ -33,6 +33,10 @@ const { zrange } = require("./zrange");
 const { zcard } = require("./zcard");
 const { zscore } = require("./zscore");
 const { zrem } = require("./zrem");
+const { geoadd } = require("./geoadd");
+const { geopos } = require("./geopos");
+const { geodist } = require("./geodist");
+const { geosearch } = require("./geosearch");
 const unknown = require("./unknown");
 const cleanup = require("./cleanup");
 
@@ -73,5 +77,9 @@ module.exports = {
   zcard,
   zscore,
   zrem,
+  geoadd,
+  geopos,
+  geodist,
+  geosearch,
   cleanup,
 };

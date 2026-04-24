@@ -1,6 +1,6 @@
 # Redis Server Implementation in Node.js
 
-A custom implementation of a Redis-compatible server built with Node.js. This project implements the RESP (Redis Serialization Protocol) and supports various data structures including Strings, Lists, Streams, Transactions, Replication, and RDB Persistence.
+A custom implementation of a Redis-compatible server built with Node.js. This project implements the RESP (Redis Serialization Protocol) and supports various data structures including Strings, Lists, Streams, Transactions, Replication, RDB Persistence, AOF Persistence, Pub/Sub, Sorted Sets, and Geo commands.
 
 ## Project Structure
 
@@ -25,17 +25,16 @@ Run the server with optional flags:
 ## Command Handlers
 
 ### General Commands
-- **ping.js**: Responds with `PONG`. Used to test the connection.
-- **echo.js**: Returns the provided message back to the client.
+- **ping.js**: Responds with `PONG`.
+- **echo.js**: Returns the provided message back.
 - **type.js**: Returns the type of the value stored at a key.
 - **info.js**: Returns server information and statistics.
-- **replconf.js**: Handles REPLCONF commands including GETACK for replicas.
-- **configget.js**: Handles CONFIG GET command for dir and dbfilename.
+- **configget.js**: Handles CONFIG GET command.
 - **cleanup.js**: Handles resource cleanup when a client disconnects.
 - **unknown.js**: Returns an error message for unsupported commands.
 
 ### String Commands
-- **set.js**: Stores a string value. Supports optional `PX` (expiry in milliseconds).
+- **set.js**: Stores a string value. Supports optional `PX` (expiry).
 - **get.js**: Retrieves the string value.
 - **incr.js**: Increments the value of a key by 1.
 - **keys.js**: Returns all keys matching pattern (supports `*`).
@@ -68,72 +67,45 @@ Run the server with optional flags:
 - **zscore.js**: Get score of member.
 - **zrem.js**: Remove member from sorted set.
 
-### Replication Commands
-- **psync.js**: Handles full resynchronization.
-- **wait.js**: Waits for replicas to acknowledge.
-- **replconf.js**: Handles REPLCONFIG commands.
-
 ### Pub/Sub Commands
 - **subscribe.js**: Subscribe to a channel.
 - **unsubscribe.js**: Unsubscribe from a channel.
 - **publish.js**: Publish message to channel.
 
-## Pub/Sub
+### Replication Commands
+- **psync.js**: Handles full resynchronization.
+- **wait.js**: Waits for replicas to acknowledge.
+- **replconf.js**: Handles REPLCONFIG commands.
 
-### Subscribe Mode
-After SUBSCRIBE, client enters "Subscribed mode" where only these commands are allowed:
-- SUBSCRIBE, UNSUBSCRIBE, PSUBSCRIBE, PUNSUBSCRIBE, PING, QUIT, RESET
-Other commands return error.
+### Geo Commands
+- **geoadd.js**: Add location with longitude, latitude.
+- **geopos.js**: Get coordinates of location.
+- **geodist.js**: Calculate distance between two locations.
+- **geosearch.js**: Search locations within radius.
 
-### PING in Subscribe Mode
-Returns ["pong", ""] instead of +PONG
+## Features
 
-### Commands
-- **SUBSCRIBE channel**: Subscribe to channel, returns ["subscribe", channel, count]
-- **UNSUBSCRIBE channel**: Unsubscribe from channel, returns ["unsubscribe", channel, count]  
-- **PUBLISH channel message**: Deliver message to subscribers, returns count of subscribers
+### Pub/Sub
+After SUBSCRIBE, client enters "Subscribed mode" where only SUBSCRIBE, UNSUBSCRIBE, PSUBSCRIBE, PUNSUBSCRIBE, PING, QUIT, RESET commands are allowed.
+PING in subscribe mode returns ["pong", ""] instead of +PONG.
 
-## RDB Persistence
+### RDB Persistence
+When started with `--dir` and `--dbfilename`, the server loads keys from the RDB file on startup. Keys with expiry are handled automatically.
 
-When started with `--dir` and `--dbfilename`, the server loads keys from the RDB file:
-- Keys with expiry are loaded with expiration timestamps
-- Expired keys return null on GET
-- KEYS returns all non-expired keys
+### AOF Persistence
+When `--appendonly yes` is set:
+- Creates `<dir>/<appenddirname>/` directory
+- Creates `<appendfilename>.1.incr.aof` file
+- Creates `<appendfilename>.manifest` file
+- Write commands are logged to AOF file
+- Commands are replayed on startup to restore state
 
-### Configuration Commands
-- **CONFIG GET dir**: Returns the configured directory path
-- **CONFIG GET dbfilename**: Returns the configured RDB filename
-- **CONFIG GET appendonly**: Returns AOF enabled status
-- **CONFIG GET appenddirname**: Returns AOF subdirectory
-- **CONFIG GET appendfilename**: Returns AOF filename
-- **CONFIG GET appendfsync**: Returns AOF sync mode
+### Replication
+- Master: Sends FULLRESYNC with empty RDB file, propagates SET commands
+- Replica: Completes 3-step handshake, processes propagated commands silently, tracks offset
 
-## AOF Persistence
-
-When `--appendonly yes` is set, write commands are logged to AOF file:
-
-### Files Created
-- `<dir>/<appenddirname>/`: AOF directory created on startup
-- `<dir>/<appenddirname>/<appendfilename>.1.incr.aof`: Append-only file
-- `<dir>/<appenddirname>/<appendfilename>.manifest`: Manifest file
-
-### Write Commands
-Only modifying commands (SET, DEL, INCR, LPUSH, etc.) are logged to AOF file.
-- **appendfsync always**: Flush to disk before client response (tested)
-- **appendfsync everysec**: Flush every second (not fully tested)
-- **appendfsync no**: Let OS handle flushing (not tested)
-
-### Recovery
-On startup with AOF enabled, commands from AOF file are replayed to restore state.
-
-## Replication
-
-### Master Role
-- Sends FULLRESYNC with empty RDB file
-- Propagates SET commands to all replicas
-- WAIT command returns count of acknowledged replicas
-
-### Replica Role
-- Completes 3-step handshake (PING, REPLCONF, PSYNC)
-- Processes propagated commands silently
-- Tracks offset and responds to REPLCONF GETACK
+### Geo Commands
+- GEOADD: Validates longitude (-180 to +180) and latitude (-85.05112878 to +85.05112878)
+- GEOPOS: Returns longitude and latitude for location members
+- GEODIST: Calculates distance using Haversine formula (Earth radius: 6372797.560856m)
+- GEOSEARCH: FROMLONLAT lng lat BYRADIUS radius unit (supports m, km, mi)
