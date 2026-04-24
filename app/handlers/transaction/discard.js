@@ -1,0 +1,15 @@
+const encoder = require("../../encoder");
+
+function discard(args, socket, state, serverInfo) {
+  if (!state.inTransaction) {
+    encoder.writeError(socket, "DISCARD without MULTI");
+    return;
+  }
+
+  state.inTransaction = false;
+  state.queuedCommands = [];
+  state.watchedKeys = null;
+  encoder.writeSimpleString(socket, "OK");
+}
+
+module.exports = discard;
