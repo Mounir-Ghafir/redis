@@ -2,62 +2,14 @@ const net = require("net");
 const { createServer } = require("./server");
 const handlers = require("./handlers");
 const store = require("./store");
+const logger = require("./logger");
 
-console.log("Logs from your program will appear here!");
-
-process.on("uncaughtException", (err) => {
-  console.error("Uncaught Exception:", err.message);
-  console.error("Stack trace:", err.stack);
-  process.exit(1);
-});
-
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-  console.error("Stack trace:", reason?.stack);
-});
-
-const args = process.argv.slice(2);
-let port = 6379;
-let isReplica = false;
-let masterHost = null;
-let masterPort = null;
-let dir = process.cwd();
-let dbfilename = null;
-let appendonly = "no";
-let appenddirname = "appendonlydir";
-let appendfilename = "appendonly.aof";
-let appendfsync = "everysec";
-
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === "--port" && args[i + 1]) {
-    port = parseInt(args[i + 1]);
-    i++;
-  } else if (args[i] === "--replicaof" && args[i + 1]) {
-    isReplica = true;
-    const [host, portStr] = args[i + 1].split(" ");
-    masterHost = host;
-    masterPort = parseInt(portStr);
-    i++;
-  } else if (args[i] === "--dir" && args[i + 1]) {
-    dir = args[i + 1];
-    i++;
-  } else if (args[i] === "--dbfilename" && args[i + 1]) {
-    dbfilename = args[i + 1];
-    i++;
-  } else if (args[i] === "--appendonly" && args[i + 1]) {
-    appendonly = args[i + 1];
-    i++;
-  } else if (args[i] === "--appenddirname" && args[i + 1]) {
-    appenddirname = args[i + 1];
-    i++;
-  } else if (args[i] === "--appendfilename" && args[i + 1]) {
-    appendfilename = args[i + 1];
-    i++;
-  } else if (args[i] === "--appendfsync" && args[i + 1]) {
-    appendfsync = args[i + 1];
-    i++;
-  }
+logger.setLevel(logLevel);
+if (logFile) {
+  logger.setLogFile(logFile);
 }
+
+logger.info("Starting Redis server", { port, dir, appendonly });
 
 const server = net.createServer();
 const host = "127.0.0.1";

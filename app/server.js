@@ -3,6 +3,7 @@ const handlers = require("./handlers");
 const store = require("./store");
 const fs = require("fs");
 const path = require("path");
+const logger = require("./logger");
 
 const REPL_ID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
 const replicas = [];
@@ -52,6 +53,7 @@ function createServer(server, config = {}) {
 
     socket.on("data", (data) => {
       try {
+        const startTime = Date.now();
         buffer += data.toString();
 
         while (buffer.includes('\r\n')) {
@@ -68,6 +70,10 @@ function createServer(server, config = {}) {
           if (parts.length < expectedParts) break;
 
           const command = parts[2]?.toUpperCase();
+          const clientIp = socket.remoteAddress;
+          
+          logger.logRequest(command, parts, clientIp);
+
           if (!command) {
             socket.write("-ERR empty command\r\n");
             buffer = parts.slice(expectedParts).join('\r\n');
@@ -133,6 +139,9 @@ function createServer(server, config = {}) {
           };
           handler(parts, socket, state, serverInfo);
 
+          const durationMs = Date.now() - startTime;
+          logger.logResponse(command, durationMs, socket.remoteAddress);
+
           if (!state.isReplica && command === "SET") {
             propagateCommand(rawData);
           }
@@ -140,8 +149,7 @@ function createServer(server, config = {}) {
           buffer = parts.slice(expectedParts).join('\r\n');
         }
       } catch (err) {
-        console.error("Error processing command:", err.message);
-        console.error("Stack:", err.stack);
+        logger.error("Error processing command: " + err.message, { stack: err.stack });
         socket.write("-ERR Internal server error\r\n");
       }
     });
@@ -151,14 +159,14 @@ function createServer(server, config = {}) {
         const idx = replicas.indexOf(socket);
         if (idx !== -1) replicas.splice(idx, 1);
         handlers.cleanup({}, socket, state);
-        console.log("Client disconnected");
+        logger.info("Client disconnected", { clientIp: socket.remoteAddress });
       } catch (err) {
-        console.error("Disconnect error:", err.message);
+        logger.error("Disconnect error: " + err.message);
       }
     });
 
     socket.on("error", (err) => {
-      console.error("Socket error:", err.message);
+      logger.error("Socket error: " + err.message);
     });
 
     socket.on("close", () => {
